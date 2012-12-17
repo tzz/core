@@ -128,7 +128,7 @@ static GenericAgentConfig CheckOpts(int argc, char **argv)
             break;
 
         case 'd':
-            HardClass("opt_debug");
+            HardClass("debug", "opt_debug");
             DEBUG = true;
             NO_FORK = true;
             break;

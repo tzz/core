@@ -42,6 +42,7 @@
 #include "cfstream.h"
 #include "fncall.h"
 #include "string_lib.h"
+#include "vars.h"
 
 /*****************************************************************************/
 
@@ -498,20 +499,30 @@ void DeleteClass(const char *oclass, const char *namespace)
 
 /*******************************************************************/
 
-void HardClass(const char *oclass)
+void HardClass(const char *opurpose, const char *oclass)
 {
     Item *ip;
+    char purpose_name[CF_MAXVARSIZE];
+    char purpose[CF_MAXVARSIZE];
     char class[CF_MAXVARSIZE];
+
+    strcpy(purpose, opurpose);
+    Chop(purpose);
 
     strcpy(class, oclass);
     Chop(class);
     CanonifyNameInPlace(class);
 
-    CfDebug("HardClass(%s)\n", class);
+    CfDebug("HardClass(%s, %s)\n", purpose, class);
 
     if (strlen(class) == 0)
     {
         return;
+    }
+
+    if (strlen(purpose) == 0)
+    {
+        strcpy(purpose, class);
     }
 
     if (IsRegexItemIn(ABORTBUNDLEHEAP, class))
@@ -531,6 +542,8 @@ void HardClass(const char *oclass)
         return;
     }
 
+    snprintf(purpose_name, CF_MAXVARSIZE - 1, "knowledge_trace[%s]", CanonifyName(purpose));
+    NewScalar("sys", purpose_name, class, cf_str);
     PrependAlphaList(&VHARDHEAP, class);
 
     for (ip = ABORTHEAP; ip != NULL; ip = ip->next)

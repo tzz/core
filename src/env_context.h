@@ -75,7 +75,7 @@ void NewPersistentContext(char *name, char *namespace, unsigned int ttl_minutes,
 void DeletePersistentContext(const char *name);
 void LoadPersistentContext(void);
 void AddEphemeralClasses(const Rlist *classlist, const char *ns);
-void HardClass(const char *oclass);
+void HardClass(const char *opurpose, const char *oclass);
 void DeleteHardClass(const char *oclass);
 void NewClass(const char *oclass, const char *namespace);      /* Copies oclass */
 void NewBundleClass(const char *oclass, const char *bundle, const char *namespace);

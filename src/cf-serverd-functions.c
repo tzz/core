@@ -96,16 +96,16 @@ static void KeepHardClasses()
 
             if (stat(name, &sb) != -1)
             {
-                HardClass("am_policy_hub");
+                HardClass("hub_state", "am_policy_hub");
             }
         }
     }
 
 #if defined HAVE_NOVA
-    HardClass("nova_edition");
-    HardClass("enterprise_edition");
+    HardClass("cf3_edition_nova", "nova_edition");
+    HardClass("cf3_edition", "enterprise_edition");
 #else
-    HardClass("community_edition");
+    HardClass("cf3_edition", "community_edition");
 #endif
 }
 
@@ -627,7 +627,7 @@ void CheckFileChanges(Policy **policy, GenericAgentConfig config, const ReportCo
             OSClasses();
             KeepHardClasses();
 
-            HardClass(CF_AGENTTYPES[THIS_AGENT_TYPE]);
+            HardClass("agent_type", CF_AGENTTYPES[THIS_AGENT_TYPE]);
 
             SetReferenceTime(true);
             *policy = ReadPromises(AGENT_TYPE_SERVER, CF_SERVERC, config, report_context);

@@ -105,7 +105,7 @@ void CheckLicenses(void)
 
     if (stat(name, &sb) != -1)
     {
-        HardClass("am_policy_hub");
+        HardClass("hub_state", "am_policy_hub");
         CfOut(cf_verbose, "", " -> Additional class defined: am_policy_hub");
     }
 }
@@ -135,7 +135,7 @@ Policy *GenericInitialize(char *agents, GenericAgentConfig config, const ReportC
     SanitizeEnvironment();
 
     THIS_AGENT_TYPE = ag;
-    HardClass(CF_AGENTTYPES[THIS_AGENT_TYPE]);
+    HardClass("agent_type", CF_AGENTTYPES[THIS_AGENT_TYPE]);
 
 // need scope sys to set vars in expiry function
     SetNewScope("sys");
@@ -488,30 +488,30 @@ void InitializeGA(const ReportContext *report_context)
     SHORT_CFENGINEPORT = htons((unsigned short) 5308);
     snprintf(STR_CFENGINEPORT, 15, "5308");
 
-    HardClass("any");
+    HardClass("any", "any");
 
 #if defined HAVE_NOVA
-    HardClass("nova_edition");
-    HardClass("enterprise_edition");
+    HardClass("cf3_edition_nova", "nova_edition");
+    HardClass("cf3_edition", "enterprise_edition");
 #else
-    HardClass("community_edition");
+    HardClass("cf3_edition", "community_edition");
 #endif
 
     strcpy(VPREFIX, GetConsolePrefix());
 
     if (VERBOSE)
     {
-        HardClass("verbose_mode");
+        HardClass("verbose", "verbose_mode");
     }
 
     if (INFORM)
     {
-        HardClass("inform_mode");
+        HardClass("inform", "inform_mode");
     }
 
     if (DEBUG)
     {
-        HardClass("debug_mode");
+        HardClass("debug", "debug_mode");
     }
 
     CfOut(cf_verbose, "", "CFEngine - autonomous configuration engine - commence self-diagnostic prelude\n");
@@ -1663,7 +1663,7 @@ static void CheckControlPromises(char *scope, char *agent, Constraint *controlli
             NewScalar("sys", "fqhost", VFQNAME, cf_str);
             NewScalar("sys", "domain", VDOMAIN, cf_str);
             DeleteClass("undefined_domain", NULL);
-            HardClass(VDOMAIN);
+            HardClass("domain", VDOMAIN);
         }
 
         if (strcmp(cp->lval, CFG_CONTROLBODY[cfg_ignore_missing_inputs].lval) == 0)
