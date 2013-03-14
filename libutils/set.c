@@ -42,6 +42,11 @@ void SetDestroy(void *set)
     MapDestroy(set);
 }
 
+size_t SetSize(const Set *set)
+{
+    return MapSize(set);
+}
+
 void SetAdd(Set *set, void *element)
 {
     MapInsert(set, element, element);
@@ -60,6 +65,18 @@ bool SetRemove(Set *set, const void *element)
 void SetClear(Set *set)
 {
     MapClear(set);
+}
+
+Set* SetAddAll(Set *set, Set *other)
+{
+    SetIterator i = SetIteratorInit(other);
+    void* elt;
+    while ((elt = SetIteratorNext(&i)))
+    {
+        SetAdd(set, elt);
+    }
+
+    return set;
 }
 
 SetIterator SetIteratorInit(Set *set)

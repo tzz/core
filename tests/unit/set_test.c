@@ -10,6 +10,14 @@ void test_stringset_from_string(void **state)
     assert_true(StringSetContains(s, "two"));
     assert_true(StringSetContains(s, " three four"));
 
+    assert_true(StringSetSize(s) == 3);
+
+    StringSet *s2 = StringSetAddAll(s, s);
+
+    assert_true(StringSetSize(s2) == 6);
+
+    assert_true(s == s2);
+
     StringSetDestroy(s);
 }
 

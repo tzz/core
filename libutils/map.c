@@ -106,6 +106,26 @@ Map *MapNew(MapHashFn hash_fn,
     return map;
 }
 
+size_t MapSize(const Map *map)
+{
+  MapIterator i = MapIteratorInit((Map*)map);
+    size_t size = 0;
+
+    if (IsArrayMap(map))
+    {
+        size = map->arraymap->size;
+    }
+    else // HashMap
+    {
+        while (MapIteratorNext(&i))
+        {
+            size++;
+        }
+    }
+
+    return size;
+}
+
 static void ConvertToHashMap(Map *map)
 {
     HashMap *hashmap = HashMapNew(map->hash_fn,
