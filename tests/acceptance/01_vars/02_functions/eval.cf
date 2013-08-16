@@ -24,7 +24,7 @@ bundle agent init
       "values[5]" string => "2 - (3 - 1)";
       "values[6]" string => "";
       "values[7]" string => "3 / 0";
-      "values[8]" string => "3^3)";
+      "values[8]" string => "3^3";
       "values[9]" string => "(-1)^2";
       "values[10]" string => "sin(20)";
       "values[11]" string => "cos(20)";
@@ -44,7 +44,13 @@ bundle agent init
       "values[25]" string => "-3.400000 -3.400001";
       "values[26]" string => "pi";
       "values[27]" string => "e";
+      "values[28]" string => "10 == 10";
+      "values[29]" string => "10 == 11";
+      "values[30]" string => "3**0";
+      "values[31]" string => "step(10)";
+      "values[32]" string => "step(-10)";
 }
+
 
 #######################################################
 
@@ -69,9 +75,9 @@ bundle agent check
       "verify[3]" string => '100.000000';
       "verify[4]" string => '';
       "verify[5]" string => '0.000000';
-      "verify[6]" string => '';
+      "verify[6]" string => '0.000000';
       "verify[7]" string => 'inf';
-      "verify[8]" string => '';
+      "verify[8]" string => '27.000000';
       "verify[9]" string => '1.000000';
       "verify[10]" string => '0.912945';
       "verify[11]" string => '0.408082';
@@ -82,15 +88,20 @@ bundle agent check
       "verify[16]" string => '-1.609438';
       "verify[17]" string => '0.693147';
       "verify[18]" string => '2.302585';
-      "verify[19]" string => '';
+      "verify[19]" string => '2.000000';
       "verify[20]" string => '0.447214';
-      "verify[21]" string => '';
-      "verify[22]" string => '';
+      "verify[21]" string => '4.000000';
+      "verify[22]" string => '3.000000';
       "verify[23]" string => '3.400000';
       "verify[24]" string => '-6.800000';
       "verify[25]" string => '-6.800001';
       "verify[26]" string => '3.141593';
       "verify[27]" string => '2.718282';
+      "verify[28]" string => '1.000000';
+      "verify[29]" string => '0.000000';
+      "verify[30]" string => '1.000000';
+      "verify[31]" string => '1.000000';
+      "verify[32]" string => '0.000000';
 
       "indices" slist => getindices("verify");
 

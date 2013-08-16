@@ -57,7 +57,7 @@ libpromises_la_SOURCES = \
         locks.c locks.h \
         logic_expressions.c logic_expressions.h \
         matching.c matching.h \
-        math_eval.c math_eval.h \
+        math_eval.c math_eval.h math.pc \
         mod_access.c mod_access.h \
         mod_common.c mod_common.h \
         mod_databases.c mod_databases.h \
@@ -168,3 +168,8 @@ libpromises_la_DEPENDENCIES = ../libutils/libutils.la ../libcfnet/libcfnet.la $(
 
 ../libutils/libutils.la:
 	$(MAKE) -C ../libutils $(AM_MAKEFLAGS) libutils.la
+
+math.pc : math.peg
+	peg -o math.pc math.peg
+
+math-eval.c: math.pc

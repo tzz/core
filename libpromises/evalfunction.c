@@ -4034,12 +4034,16 @@ static FnCallResult FnCallEval(EvalContext *ctx, FnCall *fp, Rlist *finalargs)
     char out[CF_BUFSIZE];
     memset(out, 0, sizeof(out));
 
-    sprintf(out, "%lf", EvaluateMathInfix(input, failure));
-
+    double result = EvaluateMathInfix(ctx, input, failure);
     if (strlen(failure) > 0)
     {
-        Log(LOG_LEVEL_ERR, "%s error %s on expression %s", fp->name, input, failure);
-        return (FnCallResult) { FNCALL_FAILURE };
+        Log(LOG_LEVEL_INFO, "%s error: %s (input '%s')", fp->name, failure, input);
+        //return (FnCallResult) { FNCALL_FAILURE };
+        memset(out, 0, sizeof(out));
+    }
+    else
+    {
+        sprintf(out, "%lf", result);
     }
 
     return (FnCallResult) { FNCALL_SUCCESS, { xstrdup(out), RVAL_TYPE_SCALAR } };

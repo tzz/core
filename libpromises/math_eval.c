@@ -24,182 +24,69 @@
 
 #include "math_eval.h"
 
+double stack[1024];
+int stackp= -1;
 
-double EvaluateMathInfix(char *input, char *failure)
+double push(double n) { return stack[++stackp]= n; }
+double pop(void)   { return stack[stackp--]; }
+
+#define YYSTYPE double
+#define YYPARSE yymath_parse
+#define YYPARSEFROM yymath_parsefrom
+#define YY_CTX_LOCAL
+#define YY_PARSE(T) T
+#define YY_INPUT(ctx, buf, result, max_size) {                     \
+    result = 0;                                                    \
+    if (NULL != ctx->input)                                        \
+    {                                                              \
+        /*Log(LOG_LEVEL_ERR, "YYINPUT: %s", ctx->input);*/         \
+        strncpy(buf, ctx->input, max_size);                        \
+        int n = strlen(ctx->input)+1;                              \
+        if (n > max_size) n = max_size;                            \
+        if (n > 0) buf[n - 1]= '\0';                               \
+        result = strlen(buf);                                      \
+        ctx->input = NULL;                                         \
+    }                                                              \
+    }
+
+#undef malloc
+#undef realloc
+#define malloc xmalloc
+#define realloc xrealloc
+
+#define YY_CTX_MEMBERS char *failure; char *input; char *original_input; EvalContext *eval_context; double result; char fname[50];
+
+#include "math.pc"
+
+double EvaluateMathInfix(EvalContext *ctx, char *input, char *failure)
 {
-    return 0;
+    yycontext yyctx;
+    memset(&yyctx, 0, sizeof(yycontext));
+    yyctx.failure = failure;
+    yyctx.original_input = input;
+    yyctx.input = input;
+    yyctx.eval_context = ctx;
+    yyctx.result = 0;
+    yymath_parse(&yyctx);
+    return yyctx.result;
 }
 
-//     for (int cycle=0; cycle < 1000; cycle++)
-//     {
-//     }
+double EvaluateMathFunction(char *f, double p)
+{
+    int count = sizeof(math_eval_functions)/sizeof(math_eval_functions[0]);
 
-//     if (SeqLength(stack) < 1)
-//     {
-//         strcpy(failure, "Unexpectedly empty evaluation stack");
-//         return -1;
-//     }
+    for (int i=0; i < count; i++)
+    {
+        if (0 == strcmp(math_eval_function_names[i], f))
+        {
+            return (*math_eval_functions[i])(p);
+        }
+    }
 
-//     char* item = SeqAt(stack, 0);
-//     SeqRemove(stack, 0);
+    return p;
+}
 
-//     if (NULL == item)
-//     {
-//         strcpy(failure, "NULL item off stack");
-//         return -1;
-//     }
-
-//     double scanned = 0;
-
-//     //CfOut(OUTPUT_LEVEL_INFORM, "", "eval(): item = %s", item);
-//     if (0 == strcmp(item, "=="))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         // epsilon = 1e-16
-//         return 0.00000000000000001 > fabs(temp - EvaluateMathPrefix(stack, failure)) ? 1 : 0;
-//     }
-//     else if (0 == strcmp(item, "+"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return temp + EvaluateMathPrefix(stack, failure);
-//     }
-//     else if (0 == strcmp(item, "-"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return temp - EvaluateMathPrefix(stack, failure);
-//     }
-//     else if (0 == strcmp(item, "%"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return fmod(temp, EvaluateMathPrefix(stack, failure));
-//     }
-//     else if (0 == strcmp(item, "**") || 0 == strcmp(item, "pow")) // note order: before '*'
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return pow(temp, EvaluateMathPrefix(stack, failure));
-//     }
-//     else if (0 == strcmp(item, "*"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return temp * EvaluateMathPrefix(stack, failure);
-//     }
-//     else if (0 == strcmp(item, "/"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         double over = EvaluateMathPrefix(stack, failure);
-//         if (over == 0) // yes, this can be fuzzy with floating point numbers
-//         {
-//             strcpy(failure, "Division by zero");
-//             return -1;
-//         }
-
-//         return temp / over;
-//     }
-//     else if (0 == strcmp(item, "sin"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return sin(temp);
-//     }
-//     else if (0 == strcmp(item, "exp"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return exp(temp);
-//     }
-//     else if (0 == strcmp(item, "asin"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return asin(temp);
-//     }
-//     else if (0 == strcmp(item, "cos"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return cos(temp);
-//     }
-//     else if (0 == strcmp(item, "acos"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return acos(temp);
-//     }
-//     else if (0 == strcmp(item, "tan"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return tan(temp);
-//     }
-//     else if (0 == strcmp(item, "atan"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return atan(temp);
-//     }
-//     else if (0 == strcmp(item, "log"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return log(temp);
-//     }
-//     else if (0 == strcmp(item, "log10"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return log10(temp);
-//     }
-//     else if (0 == strcmp(item, "log2"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return log2(temp);
-//     }
-//     else if (0 == strcmp(item, "sqrt"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return sqrt(temp);
-//     }
-//     else if (0 == strcmp(item, "ceil"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return ceil(temp);
-//     }
-//     else if (0 == strcmp(item, "floor"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return floor(temp);
-//     }
-//     else if (0 == strcmp(item, "abs"))
-//     {
-//         double temp = EvaluateMathPrefix(stack, failure);
-//         if (strlen(failure) > 0) return -1;
-//         return fabs(temp);
-//     }
-//     else if (0 == strcmp(item, "pi"))
-//     {
-//         return M_PI;
-//     }
-//     else if (0 == strcmp(item, "e"))
-//     {
-//         return M_E;
-//     }
-//     else if (1 == sscanf(item, "%lf", &scanned))
-//     {
-//         //CfOut(OUTPUT_LEVEL_INFORM, "", "eval(): number = %lf", scanned);
-//         return scanned;
-//     }
-
-//     snprintf(failure, CF_BUFSIZE, "unhandled term '%s'", item);
-//     return -1;
-// }
+double _math_eval_step(double p)
+{
+    return ((p < 0) ? 0 : 1);
+}
