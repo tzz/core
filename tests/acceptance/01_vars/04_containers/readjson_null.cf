@@ -34,7 +34,7 @@ bundle edit_line init_insert_json
 bundle edit_line init_insert_lines
 {
   insert_lines:
-      # nothing to insert
+      "$(const.dollar)(test.load)";
 }
 
 #######################################################
