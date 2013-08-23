@@ -28,7 +28,7 @@ bundle agent init
 bundle edit_line init_insert_json
 {
   insert_lines:
-      '{ "first": 1, "seconds": 2, "third": [ "a", "b", "c" ], "fourth": null}';
+      '{ "first": 1, "seconds": 2, "third with spaces": [ "a", "b", "c" ], "fourth": null}';
 }
 
 bundle edit_line init_insert_lines
@@ -45,7 +45,7 @@ bundle agent test
 {
   vars:
       "preload" container => readjson("$(G.testfile).json", 1024);
-      "load" container => { @(preload[third]) };
+      "load" container => { @(preload['third with spaces']) };
 
   files:
       "$(G.testfile).actual"
