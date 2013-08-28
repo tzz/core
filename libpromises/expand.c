@@ -290,9 +290,11 @@ void MapIteratorsFromRval(EvalContext *ctx, const char *scopeid, Rval rval, Rlis
     case RVAL_TYPE_FNCALL:
         fp = (FnCall *) rval.item;
 
+        int pos = 0;
         for (rp = (Rlist *) fp->args; rp != NULL; rp = rp->next)
         {
-            Log(LOG_LEVEL_DEBUG, "Looking at arg for function-like object '%s'", fp->name);
+            pos++;
+            Log(LOG_LEVEL_DEBUG, "Looking at arg %d for function-like object '%s'", pos, fp->name);
             MapIteratorsFromRval(ctx, scopeid, (Rval) {rp->item, rp->type}, scalars, lists, containers);
         }
         break;
@@ -764,6 +766,7 @@ bool ExpandScalar(const EvalContext *ctx, const char *ns, const char *scope, con
                 case DATA_TYPE_STRING_LIST:
                 case DATA_TYPE_INT_LIST:
                 case DATA_TYPE_REAL_LIST:
+                case DATA_TYPE_CONTAINER:
                 case DATA_TYPE_NONE:
                     if (type == DATA_TYPE_NONE)
                     {
@@ -773,7 +776,7 @@ bool ExpandScalar(const EvalContext *ctx, const char *ns, const char *scope, con
                     else
                     {
                         Log(LOG_LEVEL_DEBUG,
-                            "Expecting scalar, can't expand list variable '%s'",
+                            "Expecting scalar, can't expand list or container variable '%s'",
                             currentitem);
                     }
 

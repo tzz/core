@@ -1445,6 +1445,20 @@ bool EvalContextVariableGet(const EvalContext *ctx, const VarRef *ref, Rval *rva
     if (table)
     {
         Variable *var = VariableTableGet(table, ref);
+
+        if (NULL == var && IsNakedVar(ref->lval, '@'))
+        {
+            char naked[CF_MAXVARSIZE] = "";
+            GetNaked(naked, ref->lval);
+            VarRef *nref = VarRefParse(naked);
+            if (NULL != nref)
+            {
+                bool ret = EvalContextVariableGet(ctx, nref, rval_out, type_out);
+                VarRefDestroy(nref);
+                return ret;
+            }
+        }
+
         if (var)
         {
             if (rval_out)
