@@ -42,4 +42,6 @@ bool NullIterators(const PromiseIterator *iter_ctx);
 
 void PromiseIteratorUpdateVariable(EvalContext *ctx, const PromiseIterator *iter_ctx);
 
+Rlist *ContainerToRlist(const JsonElement *container);
+
 #endif

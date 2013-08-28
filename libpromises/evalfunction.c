@@ -59,6 +59,7 @@
 #include <set.h>
 #include <buffer.h>
 #include <files_lib.h>
+#include <iteration.h>
 
 #include <libgen.h>
 
@@ -2727,12 +2728,22 @@ static FnCallResult FnCallSort(EvalContext *ctx, FnCall *fp, Rlist *finalargs)
 
     VarRefDestroy(ref);
 
-    if (list_var_dtype != DATA_TYPE_STRING_LIST)
+    Rlist *source = NULL;
+    if (list_var_dtype == DATA_TYPE_CONTAINER)
+    {
+        Log(LOG_LEVEL_VERBOSE, "Converting container %s to a list", RlistScalarValue(finalargs));
+        source = ContainerToRlist(RvalContainerValue(list_var_rval));
+    }
+    else if (list_var_dtype != DATA_TYPE_STRING_LIST)
     {
         return (FnCallResult) { FNCALL_FAILURE };
     }
+    else
+    {
+        source = RvalRlistValue(list_var_rval);
+    }
 
-    Rlist *sorted = AlphaSortRListNames(RlistCopy(RvalRlistValue(list_var_rval)));
+    Rlist *sorted = AlphaSortRListNames(RlistCopy(source));
 
     return (FnCallResult) { FNCALL_SUCCESS, (Rval) { sorted, RVAL_TYPE_LIST } };
 }

@@ -1,0 +1,67 @@
+#######################################################
+#
+# Test sort()
+#
+#######################################################
+
+body common control
+{
+      inputs => { "../../default.cf.sub" };
+      bundlesequence  => { default("$(this.promise_filename)") };
+      version => "1.0";
+}
+
+#######################################################
+
+bundle agent init
+{
+  vars:
+      "x_ref" container => parsejson('{ "a":1, "b":2, "c": [4,5,6], "": 178 }');
+      "y_ref" slist => { "q", "p" };
+      "z_ref" slist => { "t", "r", "s" };
+}
+
+#######################################################
+
+bundle agent test
+{
+  vars:
+      "sort_x" slist => sort(@(init.x_ref), "lex"); # this works in the local bundle
+      "sort_y" slist => sort(@(init.y_ref), "lex"); # this works in the local bundle
+      "sort_z" slist => sort("init.z_ref", "lex");
+}
+
+
+#######################################################
+
+bundle agent check
+{
+  vars:
+      "jx" string => join(",", "test.sort_x");
+      "jy" string => join(",", "test.sort_y");
+      "jz" string => join(",", "test.sort_z");
+
+      "ex" string => "1,178,2";
+      "ey" string => "p,q";
+      "ez" string => "r,s,t";
+
+
+  classes:
+    any::
+      "ok_x" expression => strcmp($(ex), $(jx));
+      "ok_y" expression => strcmp($(ey), $(jy));
+      "ok_z" expression => strcmp($(ez), $(jz));
+
+      "ok" and => { "ok_x", "ok_y", "ok_z" };
+
+  reports:
+    DEBUG::
+      "a '$(jx)' <> '$(ex)'";
+      "b '$(jy)' <> '$(ey)'";
+      "c '$(jz)' <> '$(ez)'";
+
+    ok::
+      "$(this.promise_filename) Pass";
+    !ok::
+      "$(this.promise_filename) FAIL";
+}
