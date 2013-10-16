@@ -31,7 +31,7 @@ bundle agent test
 bundle agent check
 {
   classes:
-    debian.!ubuntu::
+    debian.!ubuntu.!cumulus::
       "ok" expression => strcmp("$(sys.flavor)", "debian_$(test.myflavor)");
     ubuntu::
       "ok" expression => "any";
