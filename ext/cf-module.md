@@ -111,17 +111,21 @@ indicate the extension side.
   * _function_: the `return` type is one of: `string`, `real`, `int`,
     or `data`.  The `args` are all of type `data` (either a JSON
     primitive like a string or an integer or a JSON container like a
-    JSON array or a JSON map).  If the **last** element of the `args`
-    list is the literal `null`, then the function can take any number
-    of arguments there and they will be put in a special variable
-    (name TBD).  Thus the example function below takes at least 2 and
-    up to any number of arguments.
+    JSON array or a JSON map).
+
+    All the element of the `args` list name the parameters of the
+    function, with one exception.  If the **penultimate** element of
+    the `args` list is the literal `null`, then the function can take
+    any number of arguments there and they will be put in the **last**
+    element of the `args` list.  Thus the example function below takes
+    at least 2 and up to any number of parameters, and parameters 3
+    through anything will go into `rest`.
 
         # success must be "true"
         { cmpv: "0.0.2", success: true,
           meta: { authors: [ "Joe", "Frank" ], signature: "long hex string" },
           response: { type: "function", name: "myfunction", namespace: "TBD",
-                      args: [ "x", "y", null ], return: "data" }
+                      args: [ "x", "y", null, "rest" ], return: "data" }
         }
 
   * _promise_: this is a `twitter` promise type that must take attribute `x`, a
