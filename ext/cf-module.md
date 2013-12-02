@@ -41,21 +41,17 @@ the communication with a message.
 Class and variable payloads will always be encoded in JSON and can have optional
 `meta` tags.  We will use `CP` and `VP` for them, with the following subtypes:
 
-* VP(slist): `{ name: "myslistvar", data: false, value: [ "x", "y" ], meta: [ "tag1", "tag2=value3" ] }`
-* VP(string): `{ name: "mystringvar", data: false, value: "x", meta: [ "tag1", "tag2=value3" ] }`
-* VP(int): `{ name: "mystringvar", data: false, value: 123, meta: [ "tag1", "tag2=value3" ] }`
-* VP(real): `{ name: "mystringvar", data: false, value: 123.45, meta: [ "tag1", "tag2=value3" ] }`
+* VP(slist): `{ name: "myslistvar", data: "slist", value: [ "x", "y" ], meta: [ "tag1", "tag2=value3" ] }`
+* VP(string): `{ name: "mystringvar", data: "string", value: "x", meta: [ "tag1", "tag2=value3" ] }`
+* VP(int): `{ name: "mystringvar", data: "int", value: 123, meta: [ "tag1", "tag2=value3" ] }`
+* VP(real): `{ name: "mystringvar", data: "real", value: 123.45, meta: [ "tag1", "tag2=value3" ] }`
 
-All the _classic_ CFEngine variable types have the `data` attribute set to `false`.
-
-Note that the only difference between a `slist` and the other variable types
-above is the value (JSON array vs. a JSON primitive).  The only difference
-between an `int` and a `real` and a `string` is the type of the JSON primitive.
+All the _classic_ CFEngine variable types have the `data` attribute set to an rval name.  The data will be encoded and decoded according to the `RvalToJson` and `JsonToRval` standard core functions.
 
 * VP(data): `{ name: "myvar", data: true, value: { mykey1: 123, mykey2: "value2" }, meta: [ "tag1", "tag2=value3" ] }`
 
 To distinguish the JSON-based CFEngine data containers from the other data
-types, the `data` attribute must be set to `true` or `false` and **must** be
+types, the `data` attribute must be set to `true` or an rval name and **must** be
 present in any variable payload.
 
 Class payloads can be bundle, global, or global persistent.  They all look the same:
@@ -79,6 +75,21 @@ or regular output.  The value **must** be a JSON array.  For example:
 
     # print one ERR messages, "boo"
     { "cfe_module_protocol_version": "0.0.2", log_ERR: [ "boo" ] } 
+
+### State information
+
+In any message, CFEngine can inform the module about the state of the evaluation with the `state` key:
+
+* _CFE_: `{ cmpv: "0.0.2", state: DATASTATE }`
+
+Here, `DATASTATE` is a description of the current state, perhaps as returned by the
+proposed `datastate` function in https://github.com/cfengine/core/pull/1047, or
+it may be a list of CP and VP data structures.  This is TBD.
+
+The `DATASTATE` may have two formats, a "brief" (data only) and a "long" (data
+plus data types and `meta` tags) output format.  This is TBD.
+
+For security and performance, the `DATASTATE` is likely to be only the local (iteration-level) data.
 
 ## Extension Protocol
 
@@ -146,21 +157,10 @@ ignored and may, for instance, allow the extension author to sign files.
 
 ### Data exchange 
 
-After initialization, the conversation starts with CFEngine informing the module about its state:
-
-* _CFE_: `{ cmpv: "0.0.2", command: "state", state: DATASTATE }`
-
-Here, `DATASTATE` is a description of the current state, as returned by the
-proposed `datastate` function in https://github.com/cfengine/core/pull/1047, or
-it may be a list of CP and VP data structures.  This is TBD.
-
-The `DATASTATE` may have two formats, a "brief" (data only) and a "long" (data
-plus data types and `meta` tags) output format.  This is TBD.
-
 * _EXT_
   * _discovery_ extensions **must** reply immediately with their data, then
     **may** exit.  They **must** specify a `discovered` key in the response,
-    containing a `DATASTATE` structure similar to the above.  They **may** specify
+    containing a `DATASTATE` structure similar to the one described earlier.  They **may** specify
     `remove_variables` and `remove_classes` requests in the response, which the
     _CFE_ side **may** honor.
 
