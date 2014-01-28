@@ -64,6 +64,11 @@
 
 #include <libgen.h>
 
+#ifdef HAVE_LIBVIRT
+#include <libvirt/libvirt.h>
+#include <libvirt/virterror.h>
+#endif
+
 #ifndef __MINGW32__
 #include <glob.h>
 #endif
@@ -982,6 +987,58 @@ static FnCallResult FnCallVariablesMatching(EvalContext *ctx, ARG_UNUSED const P
     }
 
     return (FnCallResult) { FNCALL_SUCCESS, { matches, RVAL_TYPE_LIST } };
+}
+
+/*********************************************************************/
+
+static void GetVirtGuestsEnvironmentErrorHandler()
+{
+    // really?
+}
+
+static FnCallResult FnCallGetVirtGuests(EvalContext *ctx, ARG_UNUSED const Policy *policy, const FnCall *fp, const Rlist *finalargs)
+{
+    const char *uri = RlistScalarValue(finalargs);
+#ifdef HAVE_LIBVIRT
+    virInitialize(); // not necessary after libvirt 1.0.0 but harmless
+    
+    virSetErrorFunc(NULL, (void *) GetVirtGuestsEnvironmentErrorHandler);
+
+    virConnectPtr conn = virConnectOpenAuth(uri, virConnectAuthPtrDefault, 0);
+
+    if (NULL == conn)
+    {
+        Log(LOG_LEVEL_ERR, "Failed to connect to virtualization monitor '%s'", uri);
+        return FnFailure();
+    }
+
+    int numDomains = virConnectNumOfDomains(conn);
+    int *activeDomains = xcalloc(numDomains, sizeof(int));
+    numDomains = virConnectListDomains(conn, activeDomains, numDomains);
+
+    printf("Active domain IDs:\n");
+    for (int i = 0 ; i < numDomains ; i++)
+    {
+        printf("  %d\n", activeDomains[i]);
+    }
+    free(activeDomains);
+
+    char **inactiveDomains;
+
+    numDomains = virConnectNumOfDefinedDomains(conn);
+
+    inactiveDomains = malloc(sizeof(char *) * numDomains);
+    numDomains = virConnectListDefinedDomains(conn, inactiveDomains, numDomains);
+
+    printf("Inactive domain names:\n");
+    for (int i = 0 ; i < numDomains ; i++)
+    {
+        printf("  %s\n", inactiveDomains[i]);
+        free(inactiveDomains[i]);
+    }
+    free(inactiveDomains);
+#endif
+    return FnFailure();
 }
 
 /*********************************************************************/
@@ -7364,6 +7421,12 @@ static const FnCallArg GETVARIABLEMETATAGS_ARGS[] =
     {NULL, DATA_TYPE_NONE, NULL}
 };
 
+static const FnCallArg GETVIRTGUESTS_ARGS[] =
+{
+    {CF_ANYSTRING, DATA_TYPE_STRING, "libvirt URI or environment type"},
+    {NULL, DATA_TYPE_NONE, NULL}
+};
+
 static const FnCallArg DATA_READSTRINGARRAY_ARGS[] =
 {
     {CF_ABSPATHRANGE, DATA_TYPE_STRING, "File name to read"},
@@ -7458,6 +7521,8 @@ const FnCallType CF_FNCALL_TYPES[] =
                   FNCALL_OPTION_NONE, FNCALL_CATEGORY_DATA, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("getvariablemetatags", DATA_TYPE_STRING_LIST, GETVARIABLEMETATAGS_ARGS, &FnCallGetMetaTags, "Collect a variable's meta tags into an slist",
                   FNCALL_OPTION_NONE, FNCALL_CATEGORY_UTILS, SYNTAX_STATUS_NORMAL),
+    FnCallTypeNew("getvirtguests", DATA_TYPE_CONTAINER, GETVIRTGUESTS_ARGS, &FnCallGetVirtGuests, "Get a list of the guest environments at libvirt URI or environment type arg1",
+                  FNCALL_OPTION_NONE, FNCALL_CATEGORY_SYSTEM, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("grep", DATA_TYPE_STRING_LIST, GREP_ARGS, &FnCallGrep, "Extract the sub-list if items matching the regular expression in arg1 of the list named in arg2",
                   FNCALL_OPTION_NONE, FNCALL_CATEGORY_DATA, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("groupexists", DATA_TYPE_CONTEXT, GROUPEXISTS_ARGS, &FnCallGroupExists, "True if group or numerical id exists on this host",

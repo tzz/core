@@ -992,7 +992,7 @@ static PromiseResult DeleteVirtNetwork(EvalContext *ctx, virConnectPtr vc, Attri
 
 static void EnvironmentErrorHandler()
 {
-
+    // really?
 }
 
 /*****************************************************************************/
