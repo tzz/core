@@ -169,12 +169,8 @@ static int EnvironmentsSanityChecks(Attributes a, const Promise *pp)
         return false;
     }
 
-    switch (Str2Hypervisors(a.env.type))
+    if (HypervisorHasNet(Str2Hypervisors(a.env.type)))
     {
-    case cfv_virt_xen_net:
-    case cfv_virt_kvm_net:
-    case cfv_virt_esx_net:
-    case cfv_virt_test_net:
         if (a.env.cpus != CF_NOINT || a.env.memory != CF_NOINT || a.env.disk != CF_NOINT || a.env.name
             || a.env.addresses)
         {
@@ -182,9 +178,6 @@ static int EnvironmentsSanityChecks(Attributes a, const Promise *pp)
                   a.env.memory, a.env.disk, a.env.name);
             PromiseRef(LOG_LEVEL_ERR, pp);
         }
-        break;
-    default:
-        break;
     }
 
     return true;
@@ -192,50 +185,55 @@ static int EnvironmentsSanityChecks(Attributes a, const Promise *pp)
 
 /*****************************************************************************/
 
-static PromiseResult VerifyEnvironments(EvalContext *ctx, Attributes a, const Promise *pp)
+static char* HypervisorNoNetToURLString(const enum cfhypervisors envnonet)
 {
-    char hyper_uri[CF_MAXVARSIZE];
-    enum cfhypervisors envtype = cfv_none;
+    char uri[CF_MAXVARSIZE];
 
-    switch (Str2Hypervisors(a.env.type))
+    switch (envnonet)
     {
     case cfv_virt_xen:
-    case cfv_virt_xen_net:
-        snprintf(hyper_uri, CF_MAXVARSIZE - 1, "xen:///");
-        envtype = cfv_virt_xen;
+        snprintf(uri, CF_MAXVARSIZE - 1, "xen:///");
         break;
 
     case cfv_virt_kvm:
-    case cfv_virt_kvm_net:
-        snprintf(hyper_uri, CF_MAXVARSIZE - 1, "qemu:///session");
-        envtype = cfv_virt_kvm;
+        snprintf(uri, CF_MAXVARSIZE - 1, "qemu:///session");
         break;
+
     case cfv_virt_esx:
-    case cfv_virt_esx_net:
-        snprintf(hyper_uri, CF_MAXVARSIZE - 1, "esx://127.0.0.1");
-        envtype = cfv_virt_esx;
+        snprintf(uri, CF_MAXVARSIZE - 1, "esx://127.0.0.1");
         break;
 
     case cfv_virt_test:
-    case cfv_virt_test_net:
-        snprintf(hyper_uri, CF_MAXVARSIZE - 1, "test:///default");
-        envtype = cfv_virt_test;
+        snprintf(uri, CF_MAXVARSIZE - 1, "test:///default");
         break;
 
     case cfv_virt_vbox:
-        snprintf(hyper_uri, CF_MAXVARSIZE - 1, "vbox:///session");
-        envtype = cfv_virt_vbox;
+        snprintf(uri, CF_MAXVARSIZE - 1, "vbox:///session");
         break;
 
     case cfv_zone:
-        snprintf(hyper_uri, CF_MAXVARSIZE - 1, "solaris_zone");
-        envtype = cfv_zone;
+        snprintf(uri, CF_MAXVARSIZE - 1, "solaris_zone");
         break;
 
     default:
+        return NULL;
+    }
+
+    return xstrdup(uri);
+}
+/*****************************************************************************/
+
+static PromiseResult VerifyEnvironments(EvalContext *ctx, Attributes a, const Promise *pp)
+{
+    const enum cfhypervisors envtype = Str2Hypervisors(a.env.type);
+    const enum cfhypervisors envnonet = HypervisorWithoutNet(envtype);
+
+    char* hyper_uri = HypervisorNoNetToURLString(envnonet);
+
+    if (NULL == hyper_uri)
+    {
         Log(LOG_LEVEL_ERR, "Environment type '%s' not currently supported", a.env.type);
         return PROMISE_RESULT_NOOP;
-        break;
     }
 
     Log(LOG_LEVEL_VERBOSE, "Selecting environment type '%s' '%s'", a.env.type, hyper_uri);
@@ -263,20 +261,20 @@ static PromiseResult VerifyEnvironments(EvalContext *ctx, Attributes a, const Pr
 
     PromiseResult result = PROMISE_RESULT_NOOP;
 #if defined(__linux__)
-    switch (Str2Hypervisors(a.env.type))
+    switch (envtype)
     {
     case cfv_virt_xen:
     case cfv_virt_kvm:
     case cfv_virt_esx:
     case cfv_virt_vbox:
     case cfv_virt_test:
-        result = PromiseResultUpdate(result, VerifyVirtDomain(ctx, hyper_uri, envtype, a, pp));
+        result = PromiseResultUpdate(result, VerifyVirtDomain(ctx, hyper_uri, envnonet, a, pp));
         break;
     case cfv_virt_xen_net:
     case cfv_virt_kvm_net:
     case cfv_virt_esx_net:
     case cfv_virt_test_net:
-        result = PromiseResultUpdate(result, VerifyVirtNetwork(ctx, hyper_uri, envtype, a, pp));
+        result = PromiseResultUpdate(result, VerifyVirtNetwork(ctx, hyper_uri, envnonet, a, pp));
         break;
     case cfv_ec2:
         break;
@@ -286,23 +284,23 @@ static PromiseResult VerifyEnvironments(EvalContext *ctx, Attributes a, const Pr
         break;
     }
 #elif defined(__APPLE__)
-    switch (Str2Hypervisors(a.env.type))
+    switch (envtype)
     {
     case cfv_virt_vbox:
     case cfv_virt_test:
-        result = PromiseResultUpdate(result, VerifyVirtDomain(ctx, hyper_uri, envtype, a, pp));
+        result = PromiseResultUpdate(result, VerifyVirtDomain(ctx, hyper_uri, envnonet, a, pp));
         break;
     case cfv_virt_xen_net:
     case cfv_virt_kvm_net:
     case cfv_virt_esx_net:
     case cfv_virt_test_net:
-        result = PromiseResultUpdate(result, VerifyVirtNetwork(ctx, hyper_uri, envtype, a, pp));
+        result = PromiseResultUpdate(result, VerifyVirtNetwork(ctx, hyper_uri, envnonet, a, pp));
         break;
     default:
         break;
     }
 #elif defined(__sun)
-    switch (Str2Hypervisors(a.env.type))
+    switch (envtype)
     {
     case cfv_zone:
         result = PromiseResultUpdate(result, VerifyZone(a, pp));
@@ -313,6 +311,8 @@ static PromiseResult VerifyEnvironments(EvalContext *ctx, Attributes a, const Pr
 #else
     Log(LOG_LEVEL_VERBOSE, "Unable to resolve an environment supervisor/monitor for this platform, aborting");
 #endif
+
+    free(hyper_uri);
     return result;
 }
 
@@ -1059,6 +1059,29 @@ static enum cfhypervisors Str2Hypervisors(char *s)
 
     return (enum cfhypervisors) i;
 }
+
+static enum cfhypervisors HypervisorWithoutNet(static enum cfhypervisors env)
+{
+    switch (env)
+    {
+    case cfv_virt_xen_net:
+        return cfv_virt_xen;
+    case cfv_virt_kvm_net:
+        return cfv_virt_kvm;
+    case cfv_virt_esx_net:
+        return cfv_virt_esx;
+    case cfv_virt_test_net:
+        return cfv_virt_test;
+    }
+
+    return env;
+}
+
+static bool HypervisorHasNet(static enum cfhypervisors env)
+{
+    return HypervisorWithoutNet() != env;
+}
+
 /*****************************************************************************/
 #else /* !HAVE_LIBVIRT */
 
