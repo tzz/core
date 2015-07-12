@@ -5507,6 +5507,150 @@ static FnCallResult FnCallStrftime(ARG_UNUSED EvalContext *ctx,
 
 /*********************************************************************/
 
+// guaranteed to return NULL or an error string in the Buffer *error
+Rval EvalJsonToRval(const JsonElement *e, Buffer **error)
+{
+    if (JsonGetElementType(e) == JSON_ELEMENT_TYPE_PRIMITIVE)
+    {
+        return RvalNew(JsonPrimitiveGetAsString(e), RVAL_TYPE_SCALAR);
+    }
+    else if (JsonGetElementType(e) == JSON_ELEMENT_TYPE_CONTAINER &&
+             JsonGetContainerType(e) == JSON_CONTAINER_TYPE_ARRAY &&
+             JsonLength(e) > 0)
+    {
+        Rlist *synthetic_args = NULL;
+
+        JsonIterator iter = JsonIteratorInit(e);
+        const JsonElement *fname_holder = JsonIteratorNextValue(&iter);
+        const char* fname = NULL;
+
+        if (JsonGetElementType(fname_holder) == JSON_ELEMENT_TYPE_PRIMITIVE)
+        {
+            fname = JsonPrimitiveGetAsString(fname_holder);
+        }
+        else
+        {
+            *error = BufferNew();
+            BufferAppendString(*error, "function name at first position of JSON array was not a primitive");
+            return RvalNew("", RVAL_TYPE_SCALAR);
+        }
+
+        const FnCallType *fncalltype = FnCallTypeGet(fname);
+        if (!fncalltype)
+        {
+            *error = BufferNew();
+            BufferAppendF(*error, "unknown function '%s'", fname);
+            return RvalNew("", RVAL_TYPE_SCALAR);
+        }
+
+        if (DataTypeToRvalType(fncalltype->dtype) != RVAL_TYPE_SCALAR)
+        {
+            *error = BufferNew();
+            BufferAppendF(*error, "function '%s' does not return a string", fname);
+            return RvalNew("", RVAL_TYPE_SCALAR);
+        }
+
+        if (FnNumArgs(fncalltype) > 1 && JsonLength(e)-1 != FnNumArgs(fncalltype))
+        {
+            *error = BufferNew();
+            BufferAppendF(*error, "function '%s' needs %d arguments but was provided %d", fname, FnNumArgs(fncalltype), JsonLength(e)-1);
+            return RvalNew("", RVAL_TYPE_SCALAR);
+        }
+
+        const JsonElement *item;
+        while ((item = JsonIteratorNextValue(&iter)))
+        {
+            RlistAppendRval(&synthetic_args, EvalJsonToRval(item, error));
+            if (NULL != *error)
+            {
+                RlistDestroy(synthetic_args);
+                return RvalNew("", RVAL_TYPE_SCALAR);
+            }
+        }
+
+        return (Rval) { FnCallNew(fname, synthetic_args), RVAL_TYPE_FNCALL };
+    }
+
+    *error = BufferNew();
+    BufferAppendString(*error, "unknown evaluation type, not a JSON primitive or a non-empty JSON array");
+    return RvalNew("", RVAL_TYPE_SCALAR);
+}
+
+static FnCallResult EvaluateCFString(EvalContext *ctx,
+                                     ARG_UNUSED const Policy *policy,
+                                     const FnCall *fp,
+                                     const char* string)
+{
+    if (THIS_AGENT_TYPE != AGENT_TYPE_AGENT)
+    {
+        return FnFailure();
+    }
+
+    JsonElement *parsed = NULL;
+    const char *forparse = string;
+    JsonParseError res = JsonParse(&forparse, &parsed);
+
+    if (res != JSON_PARSE_OK)
+    {
+        Log(LOG_LEVEL_ERR, "%s: error parsing JSON data '%s': %s", fp->name, string, JsonParseErrorToString(res));
+        return FnFailure();
+    }
+
+    Buffer *eval_error = NULL;
+    Rval eval = EvalJsonToRval(parsed, &eval_error);
+    JsonDestroy(parsed);
+
+    if (NULL != eval_error)
+    {
+        Log(LOG_LEVEL_ERR, "%s: error converting JSON data '%s' to Rval: %s", fp->name, string, BufferClose(eval_error));
+        RvalDestroy(eval);
+        return FnFailure();
+    }
+
+    Log(LOG_LEVEL_DEBUG, "%s: creating synthetic variable reference to evaluate '%s'", fp->name, string);
+    Policy *eval_policy = PolicyNew();
+    Bundle *bp = PolicyAppendBundle(eval_policy, NamespaceDefault(), "_cf_eval_bundle", "agent", NULL, NULL);
+    PromiseType *tp = BundleAppendPromiseType(bp, "vars");
+    Promise *np = PromiseTypeAppendPromise(tp, "return", (Rval) { NULL, RVAL_TYPE_NOPROMISEE }, "any", NULL);
+
+    PromiseAppendConstraint(np, "string", eval, false);
+
+    // note we set inherit to true, so the function calls will see the current bundle's classes
+    EvalContextStackPushBundleFrame(ctx, bp, NULL, true);
+    BundleResolve(ctx, bp);
+    EvalContextStackPopFrame(ctx);
+
+    PolicyDestroy(eval_policy);
+
+    VarRef *ref = ResolveAndQualifyVarName(fp, "_cf_eval_bundle.return");
+    if (!ref)
+    {
+        Log(LOG_LEVEL_DEBUG, "%s: the synthetic variable reference didn't resolve", fp->name);
+        return FnFailure();
+    }
+
+    DataType value_type = CF_DATA_TYPE_NONE;
+    const char *value = EvalContextVariableGet(ctx, ref, &value_type);
+    VarRefDestroy(ref);
+
+    if (!value)
+    {
+        Log(LOG_LEVEL_DEBUG, "%s: the synthetic evaluation didn't produce a value", fp->name);
+        return FnFailure();
+    }
+
+    if (DataTypeToRvalType(value_type) != RVAL_TYPE_SCALAR)
+    {
+        Log(LOG_LEVEL_DEBUG, "%s: the synthetic evaluation didn't produce a scalar value", fp->name);
+        return FnFailure();
+    }
+
+    Log(LOG_LEVEL_DEBUG, "%s: the synthetic variable value is '%s'", fp->name, value);
+    return FnReturn(value);
+}
+
+/*********************************************************************/
+
 static FnCallResult FnCallEval(EvalContext *ctx, ARG_UNUSED const Policy *policy, const FnCall *fp, const Rlist *finalargs)
 {
     char *input = RlistScalarValue(finalargs);
@@ -5516,6 +5660,12 @@ static FnCallResult FnCallEval(EvalContext *ctx, ARG_UNUSED const Policy *policy
     /* char *options = RlistScalarValue(finalargs->next->next); */
 
     const bool context_mode = (strcmp(type, "class") == 0);
+    const bool cfstring_mode = (strcmp(type, "cfstring") == 0);
+
+    if (cfstring_mode)
+    {
+        return EvaluateCFString(ctx, policy, fp, input);
+    }
 
     char failure[CF_BUFSIZE];
     memset(failure, 0, sizeof(failure));
@@ -7974,8 +8124,8 @@ static const FnCallArg FORMAT_ARGS[] =
 static const FnCallArg EVAL_ARGS[] =
 {
     {CF_ANYSTRING, CF_DATA_TYPE_STRING, "Input string"},
-    {"math,class", CF_DATA_TYPE_OPTION, "Evaluation type"},
-    {"infix", CF_DATA_TYPE_OPTION, "Evaluation options"},
+    {"math,class,cfstring", CF_DATA_TYPE_OPTION, "Evaluation type"},
+    {"none,infix", CF_DATA_TYPE_OPTION, "Evaluation options (ignored)"},
     {NULL, CF_DATA_TYPE_NONE, NULL}
 };
 
