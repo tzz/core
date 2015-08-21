@@ -31,10 +31,20 @@
 
 #include <stdlib.h>
 
+bool ClassCharIsWhitespace(char ch)
+{
+    return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+}
+
 /* <primary> */
 
 static ParseResult ParsePrimary(const char *expr, int start, int end)
 {
+    while (ClassCharIsWhitespace(expr[start]) && start < end)
+    {
+        start++;
+    }
+
     if (start < end && expr[start] == '(')
     {
         ParseResult res = ParseExpression(expr, start + 1, end);
@@ -82,6 +92,11 @@ static ParseResult ParsePrimary(const char *expr, int start, int end)
 
 static ParseResult ParseNotExpression(const char *expr, int start, int end)
 {
+    while (ClassCharIsWhitespace(expr[start]) && start < end)
+    {
+        start++;
+    }
+
     if (start < end && expr[start] == '!')
     {
         ParseResult primres = ParsePrimary(expr, start + 1, end);
@@ -113,6 +128,11 @@ static ParseResult ParseAndExpression(const char *expr, int start, int end)
     ParseResult lhs, rhs;
     Expression *res;
 
+    while (ClassCharIsWhitespace(expr[start]) && start < end)
+    {
+        start++;
+    }
+
     lhs = ParseNotExpression(expr, start, end);
 
     if (!lhs.result)
@@ -120,12 +140,18 @@ static ParseResult ParseAndExpression(const char *expr, int start, int end)
         return lhs;
     }
 
-    if (lhs.position == end || (expr[lhs.position] != '.' && expr[lhs.position] != '&'))
+    int position = lhs.position;
+    while (ClassCharIsWhitespace(expr[position]) && position <= end)
+    {
+        position++;
+    }
+
+    if (position == end || (expr[position] != '.' && expr[position] != '&'))
     {
         return lhs;
     }
 
-    rhs = ParseAndExpression(expr, lhs.position + 1, end);
+    rhs = ParseAndExpression(expr, position + 1, end);
 
     if (!rhs.result)
     {
@@ -149,6 +175,12 @@ ParseResult ParseExpression(const char *expr, int start, int end)
     Expression *res;
     int position;
 
+
+    while (ClassCharIsWhitespace(expr[start]) && start < end)
+    {
+        start++;
+    }
+
     lhs = ParseAndExpression(expr, start, end);
 
     if (!lhs.result)
@@ -158,6 +190,11 @@ ParseResult ParseExpression(const char *expr, int start, int end)
 
 /* End of left-hand side expression */
     position = lhs.position;
+
+    while (ClassCharIsWhitespace(expr[position]) && position <= end)
+    {
+        position++;
+    }
 
     if (position == end || expr[position] != '|')
     {

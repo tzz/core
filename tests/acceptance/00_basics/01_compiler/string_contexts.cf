@@ -54,6 +54,28 @@ bundle agent test
 
     "myclass . cfengine | any"::
       "whitespace1" string => "$(this.promiser)";
+
+    myclass . cfengine | any::
+      "whitespace2" string => "$(this.promiser)";
+
+    nosuchclass . any::
+      "whitespace3" string => "$(this.promiser)";
+
+    nosuchclass | any::
+      "whitespace4" string => "$(this.promiser)";
+
+    cf e ngine::
+      "whitespace5" string => "$(this.promiser)";
+
+    cf engine::
+      "whitespace6" string => "$(this.promiser)";
+
+    any cf engine::
+      "whitespace7" string => "$(this.promiser)";
+
+    any	 |	 (cfengine | linux)::
+      "whitespace8" string => "$(this.promiser)";
+
 }
 
 #######################################################
