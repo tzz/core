@@ -142,6 +142,8 @@ void EvalContextSetBundleArgs(EvalContext *ctx, const Rlist *args);
 void EvalContextSetPass(EvalContext *ctx, int pass);
 Rlist *EvalContextGetBundleArgs(EvalContext *ctx);
 int EvalContextGetPass(EvalContext *ctx);
+const Body *EvalContextFindFirstMatchingBody(const Policy *policy, const char *type,
+                                             const char *namespace, const char *name);
 
 char *EvalContextStackPath(const EvalContext *ctx);
 StringSet *EvalContextStackPromisees(const EvalContext *ctx);

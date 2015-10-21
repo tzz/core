@@ -66,6 +66,7 @@
 #include <json-yaml.h>
 #include <known_dirs.h>
 #include <mustache.h>
+#include <processes_select.h>
 
 #include <math_eval.h>
 
@@ -6887,6 +6888,250 @@ static int BuildLineArray(EvalContext *ctx, const Bundle *bundle,
 }
 
 /*********************************************************************/
+// it's so complicated to do these simple things...
+Constraint *BodyGetConstraintDirect(const Body *bp, const char *lval)
+{
+    if (!bp)
+    {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < SeqLength(bp->conlist); i++)
+    {
+        Constraint *cp = SeqAt(bp->conlist, i);
+
+        if (strcmp(cp->lval, lval) == 0)
+        {
+            return cp;
+        }
+    }
+
+    return NULL;
+}
+
+
+Rlist *BodyGetConstraintAsList(const Body *bp, const char *lval)
+{
+    const Constraint *cp = BodyGetConstraintDirect(bp, lval);
+    if (cp)
+    {
+        if (cp->rval.type == RVAL_TYPE_LIST)
+        {
+            return RvalRlistValue(cp->rval);
+        }
+    }
+
+    return NULL;
+}
+
+void *BodyGetConstraintAsRval(const Body *bp, const char *lval, RvalType rtype)
+{
+    const Constraint *constraint = BodyGetConstraintDirect(bp, lval);
+
+    if (constraint && constraint->rval.type == rtype)
+    {
+        return constraint->rval.item;
+    }
+
+    return NULL;
+}
+
+// clone of attributes.c:GetProcessFilterConstraints()
+ProcessSelect GetProcessFilterConstraintsFromBody(const Body *bp, Buffer **error)
+{
+    ProcessSelect p;
+    char *value;
+    int entries = 0;
+
+    p.owner = BodyGetConstraintAsList(bp, "process_owner");
+
+    // NOTE that this will not work: the type is actually FNCALL here, and only during promise resolution does it become a scalar.  So it doesn't work!!!
+    value = BodyGetConstraintAsRval(bp, "pid", RVAL_TYPE_SCALAR);
+
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, &p.min_pid, &p.max_pid))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of PID integer range [%s]", value);
+    }
+    value = BodyGetConstraintAsRval(bp, "ppid", RVAL_TYPE_SCALAR);
+
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, &p.min_ppid, &p.max_ppid))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of PPID integer range [%s]", value);
+    }
+    value = BodyGetConstraintAsRval(bp, "pgid", RVAL_TYPE_SCALAR);
+
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, &p.min_pgid, &p.max_pgid))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of PGID integer range [%s]", value);
+    }
+    value = BodyGetConstraintAsRval(bp, "rsize", RVAL_TYPE_SCALAR);
+
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, &p.min_rsize, &p.max_rsize))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of RSIZE integer range [%s]", value);
+    }
+    value = BodyGetConstraintAsRval(bp, "vsize", RVAL_TYPE_SCALAR);
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, &p.min_vsize, &p.max_vsize))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of VSIZE integer range [%s]", value);
+    }
+    value = BodyGetConstraintAsRval(bp, "ttime_range", RVAL_TYPE_SCALAR);
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, (long *) &p.min_ttime, (long *) &p.max_ttime))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of ttime integer range [%s]", value);
+    }
+    value = BodyGetConstraintAsRval(bp, "stime_range", RVAL_TYPE_SCALAR);
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, (long *) &p.min_stime, (long *) &p.max_stime))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of stime integer range [%s]", value);
+    }
+
+    p.status = BodyGetConstraintAsRval(bp, "status", RVAL_TYPE_SCALAR);
+    p.command = BodyGetConstraintAsRval(bp, "command", RVAL_TYPE_SCALAR);
+    p.tty = BodyGetConstraintAsRval(bp, "tty", RVAL_TYPE_SCALAR);
+
+    value = BodyGetConstraintAsRval(bp, "priority", RVAL_TYPE_SCALAR);
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, &p.min_pri, &p.max_pri))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of priority integer range [%s]", value);
+    }
+    value = BodyGetConstraintAsRval(bp, "threads", RVAL_TYPE_SCALAR);
+    if (value)
+    {
+        entries++;
+    }
+
+    if (!IntegerRangeFromString(value, &p.min_thread, &p.max_thread))
+    {
+        *error = BufferNew();
+        BufferPrintf(*error, "Could not make sense of threads integer range [%s]", value);
+    }
+
+    if ((p.owner) || (p.status) || (p.command) || (p.tty))
+    {
+        entries = true;
+    }
+
+    if ((p.process_result = BodyGetConstraintAsRval(bp, "process_result", RVAL_TYPE_SCALAR)) == NULL)
+    {
+        if (entries)
+        {
+            *error = BufferNew();
+            BufferPrintf(*error, "process_select body missing its a process_result return value");
+        }
+    }
+
+    return p;
+}
+
+
+static FnCallResult FnCallProcessExists(ARG_UNUSED EvalContext *ctx, const Policy *policy, const FnCall *fp, const Rlist *finalargs)
+{
+    char *regex = RlistScalarValue(finalargs);
+    char *process_select_body = RlistScalarValue(finalargs->next);
+
+    const bool context_mode = strcmp(fp->name, "processexists") == 0;
+    const bool want_body = ( 0 != strlen(process_select_body) );
+
+    Item* procdata = NULL;
+    if (!LoadProcessTable(&procdata))
+    {
+        Log(LOG_LEVEL_ERR, "%s: could not load the process table?!?!", fp->name);
+        return FnFailure();
+    }
+
+    const Body *bp = want_body ? EvalContextFindFirstMatchingBody(policy, "process_select", NamespaceDefault(), process_select_body) : NULL;
+    if (want_body && !bp)
+    {
+        Log(LOG_LEVEL_INFO, "%s: could not find a process_select body named %s, sorry", fp->name, process_select_body);
+        DeleteItemList(procdata);
+        return FnFailure();
+    }
+
+    Buffer *error = NULL;
+    ProcessSelect ps = GetProcessFilterConstraintsFromBody(bp, &error);
+
+    if (NULL != error)
+    {
+        Log(LOG_LEVEL_ERR, "%s: while loading the body %s, got error %s", fp->name, process_select_body, BufferData(error));
+        DeleteItemList(procdata);
+        BufferDestroy(error);
+        return FnFailure();
+    }
+
+    Item *matched = SelectProcesses(procdata, regex, ps, want_body);
+    DeleteItemList(procdata);
+
+    if (context_mode)
+    {
+        return FnReturnContext(NULL != matched);
+    }
+
+    JsonElement *json = JsonArrayCreate(50);
+    // we're in process gathering mode
+    for (Item *ip = matched; ip != NULL; ip = ip->next)
+    {
+        // we only have name and PID
+        JsonElement *pobj = JsonObjectCreate(4);
+        JsonObjectAppendString(pobj, "line", ip->name);
+        JsonObjectAppendInteger(pobj, "pid", ip->counter);
+
+        JsonArrayAppendObject(json, pobj);
+    }
+    DeleteItemList(matched);
+
+    return (FnCallResult) { FNCALL_SUCCESS, (Rval) { json, RVAL_TYPE_CONTAINER } };
+}
+
+/*********************************************************************/
 
 static int ExecModule(EvalContext *ctx, char *command)
 {
@@ -8079,6 +8324,13 @@ static const FnCallArg STRING_MUSTACHE_ARGS[] =
     {NULL, CF_DATA_TYPE_NONE, NULL}
 };
 
+static const FnCallArg PROCESSEXISTS_ARGS[] =
+{
+    {CF_ANYSTRING, CF_DATA_TYPE_STRING, "Regular expression to match process name"},
+    {CF_ANYSTRING, CF_DATA_TYPE_STRING, "Name of process_select body, can be empty"},
+    {NULL, CF_DATA_TYPE_NONE, NULL}
+};
+
 /*********************************************************/
 /* FnCalls are rvalues in certain promise constraints    */
 /*********************************************************/
@@ -8149,6 +8401,8 @@ const FnCallType CF_FNCALL_TYPES[] =
                   FNCALL_OPTION_NONE, FNCALL_CATEGORY_DATA, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("findfiles", CF_DATA_TYPE_STRING_LIST, FINDFILES_ARGS, &FnCallFindfiles, "Find files matching a shell glob pattern",
                   FNCALL_OPTION_VARARG, FNCALL_CATEGORY_FILES, SYNTAX_STATUS_NORMAL),
+    FnCallTypeNew("findprocesses", CF_DATA_TYPE_CONTAINER, PROCESSEXISTS_ARGS, &FnCallProcessExists, "Returns data container of processes matching the regular expression and an optional process_select body",
+                  FNCALL_OPTION_NONE, FNCALL_CATEGORY_SYSTEM, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("format", CF_DATA_TYPE_STRING, FORMAT_ARGS, &FnCallFormat, "Applies a list of string values in arg2,arg3... to a string format in arg1 with sprintf() rules",
                   FNCALL_OPTION_VARARG, FNCALL_CATEGORY_DATA, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("getclassmetatags", CF_DATA_TYPE_STRING_LIST, GETCLASSMETATAGS_ARGS, &FnCallGetMetaTags, "Collect a class's meta tags into an slist",
@@ -8273,6 +8527,8 @@ const FnCallType CF_FNCALL_TYPES[] =
                   FNCALL_OPTION_NONE, FNCALL_CATEGORY_COMM, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("peerleaders", CF_DATA_TYPE_STRING_LIST, PEERLEADERS_ARGS, &FnCallPeerLeaders, "Get a list of peer leaders from the named partitioning",
                   FNCALL_OPTION_NONE, FNCALL_CATEGORY_COMM, SYNTAX_STATUS_NORMAL),
+    FnCallTypeNew("processexists", CF_DATA_TYPE_CONTEXT, PROCESSEXISTS_ARGS, &FnCallProcessExists, "True if the regular expression matches a process with an optional process_select body",
+                  FNCALL_OPTION_NONE, FNCALL_CATEGORY_SYSTEM, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("product", CF_DATA_TYPE_REAL, PRODUCT_ARGS, &FnCallProduct, "Return the product of a list of reals",
                   FNCALL_OPTION_NONE, FNCALL_CATEGORY_DATA, SYNTAX_STATUS_NORMAL),
     FnCallTypeNew("randomint", CF_DATA_TYPE_INT, RANDOMINT_ARGS, &FnCallRandomInt, "Generate a random integer between the given limits, excluding the upper",

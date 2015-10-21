@@ -150,7 +150,7 @@ static int SelectProcess(const char *procentry, time_t pstime, char **names, int
     {
         if (StringSetSize(process_select_attributes) == 0)
         {
-            result = EvalProcessResult("", process_select_attributes);
+            result = false; // was EvalProcessResult("", process_select_attributes);
         }
         else
         {
